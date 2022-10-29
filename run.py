@@ -3,6 +3,7 @@ import os
 import traceback
 
 from pandas import read_csv, read_excel
+from stream_bit_rate.stream_bitrate_stats import BitrateStats
 
 
 def parse_arguments():
@@ -12,6 +13,7 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        prog="Calculate Stream Bit Rate",
         description="Stream Metadata Parser",
     )
     parser.add_argument("input_file", help="Input File for list of streams")
@@ -70,6 +72,37 @@ def parse_arguments():
 
     return parser.parse_args()
 
+def get_stream_metadata(arguments, row):
+    """
+    Get the stream metadata information.
+    :return: Series, with metadata columns
+    """
+    try:
+        print("Processing: ", str(row["Streams"]).strip())
+        br = BitrateStats(
+            row["Streams"],
+            arguments.stream_type,
+            arguments.aggregation,
+            arguments.chunk_size,
+            arguments.dry_run,
+            arguments.verbose,
+        )
+        br.calculate_statistics()
+        metadata = br.get_stream_metadata()
+
+        row["Stream Type"] = metadata.get("stream_type")
+        row["Average FPS"] = metadata.get("avg_fps")
+        row["Average Bitrate"] = metadata.get("avg_bitrate")
+        row["Probe Duration"] = metadata.get("chunk_size")
+        row["Width"] = metadata.get("width")
+        row["Height"] = metadata.get("height")
+        row["Codec"] = metadata.get("codec_name")
+        row["Codec Name"] = metadata.get("codec_long_name")
+    except Exception as e:
+        print("ERROR ", e)
+        print(traceback.print_exc())
+
+    return row
 
 
 def run():
@@ -107,3 +140,19 @@ def run():
     file_format = file_path.split(".")[-1]
 
     df["Streams"] = df["Streams"].str.strip()
+
+    # process the metadata for entire dataframe
+    df_output = df.apply(lambda row: get_stream_metadata(arguments, row), axis=1, result_type='expand')
+    print("OUTPUT file generated ", os.path.join(output_dir, f"{file_name}_output.{file_format}"))
+    # output file generation
+    if str(file_format).lower() in ["xlsx", "xls"]:
+        df_output.to_excel(os.path.join(output_dir, f"{file_name}_output.{file_format}"), index=False)
+    elif str(file_format).lower() in ["csv"]:
+        df_output.to_csv(os.path.join(output_dir, f"{file_name}_output.{file_format}"), index=False)
+    elif str(file_format).lower() in ["json"]:
+        df_output.to_json(os.path.join(output_dir, f"{file_name}_output.{file_format}"), index=False)
+    else:
+        # default output format
+        df_output.to_excel(os.path.join(output_dir, f"{file_name}_output.xlsx"), index=False)
+
+

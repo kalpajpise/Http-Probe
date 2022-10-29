@@ -1,6 +1,6 @@
 # folders to remove to commit 
 
 venv
-venv/*
-
 __pycache__
+.idea
+.vscode
