@@ -43,13 +43,13 @@ def probe_extract(file_name, cmd='ffprobe'):
     return {}
 
 
-def probe_rtsp_info(row):
+def probe_http_info(row):
     try:
         print(".", end="")
         stream_url = str(row["Streams"]).strip()
 
         if stream_url is None or stream_url == "":
-            raise Exception("RTSP URL EMPTY")
+            raise Exception("HTTP URL EMPTY")
 
         # using ffmpeg probe
         # probe = ffmpeg.probe(stream_url)
